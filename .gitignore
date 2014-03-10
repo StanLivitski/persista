@@ -1,0 +1,6 @@
+/build*/
+/dist/
+/eclipse.bin/
+/javadoc/
+/lib/
+/.apt_generated/
