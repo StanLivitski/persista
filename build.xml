@@ -1,0 +1,352 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+ |  This file is part of Persista.
+ |  Copyright © 2013, 2014 Konstantin "Stan" Livitski
+ |
+ |  Persista is free software: you can redistribute it and/or modify
+ |  it under the terms of the GNU Affero General Public License as published by
+ |  the Free Software Foundation, either version 3 of the License, or
+ |  (at your option) any later version.
+ |
+ |  This program is distributed in the hope that it will be useful,
+ |  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ |  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ |  GNU Affero General Public License for more details.
+ |
+ |  You should have received a copy of the GNU Affero General Public License
+ |  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ |
+ |  Additional permissions under GNU Affero GPL version 3 section 7:
+ |
+ |  1. If you modify this Program, or any covered work, by linking or combining
+ |  it with any library or component covered by the terms of Eclipse Public
+ |  License version 1.0 and/or Eclipse Distribution License version 1.0, the
+ |  licensors of this Program grant you additional permission to convey the
+ |  resulting work. Corresponding Source for a non-source form of such a
+ |  combination shall include the source code for the aforementioned library or
+ |  component as well as that of the covered work.
+ |
+ |  2. If you modify this Program, or any covered work, by linking or combining
+ |  it with the Java Server Pages Expression Language API library (or a
+ |  modified version of that library), containing parts covered by the terms of
+ |  JavaServer Pages Specification License, the licensors of this Program grant
+ |  you additional permission to convey the resulting work.
+ |
+ |=========================================================================== -->
+<project name="persista" default="server" xmlns:ivy="antlib:org.apache.ivy.ant">
+    <description>
+        Persista - JPA-enabled application framework.
+    </description>
+
+	<property name="ivy.home" location="/opt/apache-ivy" />
+	<!-- property name="ivy.download.group-id" value="" /-->
+	<!-- property name="ivy.download.artifact-id" value="" /-->
+	<!-- property name="ivy.download.version" value="" /-->
+	<property name="db.config" location="${basedir}/config/test.db.cfg" />
+	<!-- property name="db.admin.creds" value="${user.home}/secret/db-admin.properties" /-->
+	<!-- property name="db.update.ddl.file" value="${user.home}/${ant.project.name}.ddl" /-->
+
+	<!-- Constant values for the project -->
+	<property name="server.control.class" value="run" />
+	<property name="source.dir" location="${basedir}/src" />
+	<property name="build.dir.rel" value="build" />
+	<property name="build.dir" location="${basedir}/${build.dir.rel}" />
+	<property name="test.dir.rel" value="test" />
+	<property name="test.dir" location="${basedir}/${test.dir.rel}" />
+	<property name="test.build.dir.rel" value="build-test" />
+	<property name="test.build.dir" location="${basedir}/${test.build.dir.rel}" />
+	<property name="test.jar.rel" value="${ant.project.name}-test.jar" />
+	<property name="dest.jar.rel" value="${ant.project.name}.jar" />
+	<property name="dest.jar.dir" location="${basedir}/dist" />
+	<property name="dest.jar.file" value="${dest.jar.dir}/${dest.jar.rel}" />
+	<property name="test.jar.file" value="${dest.jar.dir}/${test.jar.rel}" />
+	<property name="javadoc.dir.rel" value="javadoc" />
+	<property name="javadoc.dir" location="${basedir}/${javadoc.dir.rel}" />
+	<property name="lib.dir" location="${basedir}/lib" />
+	<property name="lib.spring.version" value="3.2.4.RELEASE" />
+	<property name="lib.hibernate.version" value="4.2.3+" />
+
+	<!--property name="hibernate.cfg.rel" location="hibernate.properties" /-->
+
+	<path id="lib.path">
+		<fileset dir="${lib.dir}">
+			<include name="**/*.jar" />
+			<exclude name="test/**" />
+		</fileset>
+	</path>
+
+	<path id="test.lib.path">
+		<fileset dir="${lib.dir}">
+			<include name="test/**/*.jar" />
+		</fileset>
+	</path>
+
+	<path id="run.path">
+		<pathelement path="${dest.jar.file}"/>
+		<path refid="lib.path"/>
+	</path>
+
+	<path id="test.path">
+		<pathelement path="${test.jar.file}" />
+		<pathelement path="${dest.jar.file}"/>
+		<path refid="lib.path"/>
+		<path refid="test.lib.path"/>
+	</path>
+
+    <!-- ================================= 
+          target: server    
+         ================================= -->
+    <target name="server" depends="jar"
+    	description="Provisions a database server and checks that the database exists">
+    	<java classpathref="run.path" classname="${server.control.class}" failonerror="true">
+    		<arg value="--start" />
+    		<arg value="--config" />
+    		<arg value="${db.config}" />
+    	</java>
+    </target>
+
+    <!-- ================================= 
+          target: db-create    
+         ================================= -->
+	<target name="db-create" depends="jar,-db-ddl-dump"
+		description="Creates a new database. Use -Ddb.admin.creds property to point to a file with database admin credentials.">
+		<condition property="db.create.creds.arg" value=" &quot;${db.admin.creds}&quot;">
+			<available file="${db.admin.creds}" type="file" />
+		</condition>
+		<property name="db.create.creds.arg" value="" />
+    	<java classpathref="run.path" classname="${server.control.class}" failonerror="true">
+    		<arg value="--start" />
+    		<arg value="--config" />
+    		<arg value="${db.config}" />
+    		<arg line="--create${db.create.creds.arg}" />
+    		<arg line="--update-schema${db.update.ddl.arg}" />
+    	</java>
+    </target>
+
+    <!-- ================================= 
+          target: db-update    
+         ================================= -->
+	<target name="db-update" depends="jar,-db-ddl-dump"
+		description="Updates the database schema">
+    	<java classpathref="run.path" classname="${server.control.class}" failonerror="true">
+    		<arg value="--start" />
+    		<arg value="--config" />
+    		<arg value="${db.config}" />
+    		<arg line="--update-schema${db.update.ddl.arg}" />
+    	</java>
+    </target>
+
+    <!-- ================================= 
+          target: -db-ddl-dump    
+         ================================= -->
+	<target name="-db-ddl-dump">
+		<condition property="db.update.ddl.arg" value=" &quot;${db.update.ddl.file}&quot;">
+			<isset property="db.update.ddl.file"/>
+		</condition>
+		<property name="db.update.ddl.arg" value="" />
+    </target>
+
+    <!-- ================================= 
+          target: jar    
+         ================================= -->
+    <target name="jar" description="Builds a JAR file for dependent targets and projects">
+    	<uptodate property="dest.jar.uptodate" targetfile="${dest.jar.file}">
+    		<srcfiles dir="${source.dir}" />
+    	</uptodate>
+    	<antcall target="-jar" inheritrefs="true" />
+    </target>
+
+    <!-- ================================= 
+          target: -jar    
+         ================================= -->
+    <target name="-jar" unless="dest.jar.uptodate">
+    	<mkdir dir="${dest.jar.dir}" />
+    	<antcall target="compile" inheritrefs="true" />
+    	<jar destfile="${dest.jar.file}" basedir="${build.dir}" update="false" duplicate="fail" />
+    </target>
+
+    <!-- ================================= 
+          target: compile    
+         ================================= -->
+    <target name="compile" description="Compiles the project">
+    	<delete dir="${build.dir}" quiet="true" />
+    	<mkdir dir="${build.dir}" />
+    	<javac destdir="${build.dir}"
+    		debug="true" debuglevel="lines,source" source="6" target="6">
+    		<compilerarg value="-Ajpa.pub.units=name.livitski.tools.persista.schema.example" />
+    		<compilerarg value="-Ajpa.pub.unit.name.livitski.tools.persista.schema.example.description=
+    			Example persistent classes for persista framework
+    			" />
+    		<src path="${source.dir}" />
+    		<classpath refid="lib.path" />
+    	</javac>
+    	<copy todir="${build.dir}" includeEmptyDirs="false">
+    		<fileset dir="${source.dir}">
+    			<exclude name="**/*.java" />
+    		</fileset>
+    		<fileset dir="${basedir}">
+    			<include name="LICENSE" />
+    			<include name="NOTICE" />
+    		</fileset>
+    	</copy>
+    </target>
+
+    <!-- ================================= 
+          target: test-jar    
+         ================================= -->
+    <target name="test-jar" description="Builds a JAR file for the project's unit tests">
+    	<antcall target="test-compile" inheritrefs="true" />
+    	<delete file="${test.jar.file}" quiet="true" />
+    	<jar destfile="${test.jar.file}" basedir="${test.build.dir}" update="false" duplicate="fail" />
+    </target>
+
+    <!-- ================================= 
+          target: test-compile    
+         ================================= -->
+    <target name="test-compile" description="Compiles unit tests for the project"
+    	depends="jar">
+    	<delete dir="${test.build.dir}" quiet="true" />
+    	<mkdir dir="${test.build.dir}" />
+    	<javac destdir="${test.build.dir}"
+    		debug="true" debuglevel="lines,source" source="6" target="6">
+    		<src path="${test.dir}" />
+    		<classpath>
+	    		<path refid="run.path" />
+    			<path refid="test.lib.path" />
+    		</classpath>
+    	</javac>
+    	<copy todir="${test.build.dir}" includeEmptyDirs="false">
+    		<fileset dir="${test.dir}">
+    			<exclude name="**/*.java" />
+    		</fileset>
+    		<fileset dir="${basedir}">
+    			<include name="LICENSE" />
+    			<include name="NOTICE" />
+    		</fileset>
+    	</copy>
+    </target>
+
+	<!-- ================================= 
+          target: test    
+         ================================= -->
+    <target name="test" description="Runs unit tests for the project"
+    	depends="server,test-jar"
+    	>
+    	<tempfile property="test.report.dir" destdir="${java.io.tmpdir}"
+    		prefix="${ant.project.name}-" suffix=".test"
+    	/>
+    	<mkdir dir="${test.report.dir}" />
+    	<junit fork="on" forkmode="once" printsummary="on" tempdir="${java.io.tmpdir}">
+    		<classpath refid="test.path" />
+    		<formatter type="xml" />
+    		<batchtest todir="${test.report.dir}">
+        		<fileset dir="${test.dir}">
+        			<exclude name="**/Abstract*.java" />
+        		</fileset>
+    		</batchtest>
+    	</junit>
+    	<echo message="Detailed reports written to ${test.report.dir}" />
+    </target>
+
+    <!-- ================================= 
+          target: javadoc    
+         ================================= -->
+    <target name="javadoc" description="Generates Javadoc from the project's sources">
+    	<delete dir="${javadoc.dir}" quiet="true" />
+    	<mkdir dir="${javadoc.dir}" />
+        <javadoc access="protected" author="true"
+        	destdir="${javadoc.dir}" doctitle="${ant.project.name} project"
+        	nodeprecated="false" nodeprecatedlist="false"
+        	noindex="false" nonavbar="false" notree="false"
+        	source="6" sourcepath="${source.dir}" splitindex="true" use="true" version="true">
+        	<package name="name.livitski.tools.persista" />
+        	<package name="name.livitski.tools.persista.cli" />
+        	<package name="name.livitski.tools.persista.config" />
+        	<package name="name.livitski.tools.persista.config.credentials" />
+           	<package name="name.livitski.tools.persista.diagn" />
+        	<package name="name.livitski.tools.persista.schema.example" />
+        	<classpath refid="lib.path" />
+        	<classpath refid="test.lib.path" />
+            <link href="http://docs.oracle.com/javase/6/docs/api/" />
+            <link href="http://commons.apache.org/proper/commons-logging/apidocs/" />
+        	<link href="../../springlet/javadoc/" />
+        	<link href="../../proper2/javadoc/" />
+        </javadoc>
+    </target>
+
+    <!-- ================================= 
+          target: -ivy-init    
+         ================================= -->
+	<target name="-ivy-init">
+    	<path id="ivy.lib.path">
+    	    <fileset dir="${ivy.home}">
+    	    	<include name="*.jar"/>
+    	    	<include name="lib/*.jar"/>
+    	    </fileset>
+    	</path>
+    	<taskdef resource="org/apache/ivy/ant/antlib.xml"
+    	          uri="antlib:org.apache.ivy.ant" classpathref="ivy.lib.path"/>
+    </target>    
+
+    <!-- ================================= 
+          target: download-hibernate
+         ================================= -->
+    <target name="download-hibernate"
+    	 description="Downloads Hibernate entity manager along with transitive libraries to a temp dir">
+    	<antcall target="ivy-download">
+        	<param name="ivy.download.group-id" value="org.hibernate" />
+    		<param name="ivy.download.artifact-id" value="hibernate-entitymanager" />
+    		<param name="ivy.download.version" value="${lib.hibernate.version}" />
+        	<param name="ivy.download.dir" location="${java.io.tmpdir}/hibernate" />
+    	</antcall>
+    </target>
+
+    <!-- ================================= 
+          target: download-spring-core
+         ================================= -->
+    <target name="download-spring-core"
+    	 description="Downloads the core Spring container along with transitive libraries">
+    	<antcall target="ivy-download">
+        	<param name="ivy.download.group-id" value="org.springframework" />
+    		<param name="ivy.download.artifact-id" value="spring-core" />
+    		<param name="ivy.download.version" value="${lib.spring.version}" />
+        	<param name="ivy.download.dir" location="${java.io.tmpdir}/spring" />
+    	</antcall>
+    </target>
+
+    <!-- ================================= 
+          target: download-spring-beans
+         ================================= -->
+    <target name="download-spring-beans"
+    	 description="Downloads the core Spring container along with transitive libraries">
+    	<antcall target="ivy-download">
+        	<param name="ivy.download.group-id" value="org.springframework" />
+    		<param name="ivy.download.artifact-id" value="spring-beans" />
+    		<param name="ivy.download.version" value="${lib.spring.version}" />
+        	<param name="ivy.download.dir" location="${java.io.tmpdir}/spring" />
+    	</antcall>
+    </target>
+
+    <!-- ================================= 
+          target: ivy-download
+          TODO: extract this target and spring download targets into a shared
+          build file with the Sprignlet project 
+         ================================= -->
+    <target name="ivy-download" depends="-ivy-init"
+    	 description="Downloads a Maven artifact along with transitive libraries to a temp dir">
+    	<fail unless="ivy.download.group-id"
+    		message="Please set property -Divy.download.group-id before running this target" />
+    	<fail unless="ivy.download.artifact-id"
+    		message="Please set property -Divy.download.artifact-id before running this target" />
+    	<fail unless="ivy.download.dir"
+    		message="Please set property -Divy.download.dir before running this target" />
+    	<property name="ivy.download.version" value="latest.release" />
+    	<mkdir dir="${ivy.download.dir}" />
+    	<property name="ivy.default.cache.dir" value="${java.io.tmpdir}/ivy.cache" />
+    	<ivy:configure file="${basedir}/ivysettings-jboss.xml" />
+    	<ivy:resolve keep="true" inline="true" organisation="${ivy.download.group-id}"
+    		module="${ivy.download.artifact-id}" revision="${ivy.download.version}" transitive="true" />
+    	<ivy:retrieve
+    		pattern="${ivy.download.dir}/[artifact]-[revision](-[classifier]).[ext]" symlink="true" />
+    </target>
+</project>

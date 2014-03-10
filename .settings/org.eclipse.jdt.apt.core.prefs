@@ -1,0 +1,7 @@
+#Mon Feb 24 21:48:28 EST 2014
+eclipse.preferences.version=1
+org.eclipse.jdt.apt.aptEnabled=true
+org.eclipse.jdt.apt.genSrcDir=.apt_generated
+org.eclipse.jdt.apt.processorOptions/jpa.pub.unit.name.livitski.tools.persista.schema.example.description=Example persistent classes for persista framework
+org.eclipse.jdt.apt.processorOptions/jpa.pub.units=name.livitski.tools.persista.schema.example
+org.eclipse.jdt.apt.reconcileEnabled=false
