@@ -38,7 +38,7 @@
         Persista - JPA-enabled application framework.
     </description>
 
-	<property name="ivy.home" location="/opt/apache-ivy" />
+	<property name="ivy.home" location="/opt/apache/ivy" />
 	<!-- property name="ivy.download.group-id" value="" /-->
 	<!-- property name="ivy.download.artifact-id" value="" /-->
 	<!-- property name="ivy.download.version" value="" /-->
